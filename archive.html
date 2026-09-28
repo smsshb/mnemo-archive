@@ -158,7 +158,7 @@
     .filter-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3); margin-bottom: 10px; }
     .sort-btns { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 24px; }
     .sort-btn {
-      flex: 1; font-size: 11.5px; font-weight: 500; letter-spacing: 0.08em; padding: 10px 0;
+      flex: 1; font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; padding: 10px 0; white-space: nowrap;
       border: none; background: none; cursor: pointer; color: var(--ink2); transition: all 0.12s;
     }
     .sort-btn:not(:last-child) { border-right: 1px solid var(--border); }
@@ -507,6 +507,7 @@
           <button class="sort-btn active" id="btnNew" onclick="setSort('desc')">최신순</button>
           <button class="sort-btn" id="btnOld" onclick="setSort('asc')">오래된순</button>
           <button class="sort-btn" id="btnAbc" onclick="setSort('abc')">가나다순</button>
+          <button class="sort-btn" id="btnPop" onclick="setSort('pop')">인기순</button>
         </div>
         <div class="filter-label">장르</div>
         <div class="genre-tags" id="genreTags"></div>
@@ -851,6 +852,7 @@
     $('btnNew').classList.toggle('active', dir === 'desc');
     $('btnOld').classList.toggle('active', dir === 'asc');
     $('btnAbc').classList.toggle('active', dir === 'abc');
+    $('btnPop').classList.toggle('active', dir === 'pop');
     renderTracks(true);
     $('centerEl').scrollTo({ top: 0 });
   };
@@ -947,7 +949,15 @@
 
     const groups = [];
     const byKey = {};
-    if (sortDir === 'abc') {
+    if (sortDir === 'pop') {
+      // 인기순 — 좋아요 수가 같은 곡끼리 묶고, 큰 숫자 자리에 좋아요 수를 쓴다. 동점이면 최신 곡이 위
+      const likesOf = d => Math.max(0, d.likes || 0);
+      [...docs].sort((a, b) => (likesOf(b) - likesOf(a)) || (docDate(b) - docDate(a))).forEach(d => {
+        const n = likesOf(d);
+        if (!byKey[n]) { byKey[n] = { label: String(n), dow: n === 1 ? 'LIKE' : 'LIKES', docs: [] }; groups.push(byKey[n]); }
+        byKey[n].docs.push(d);
+      });
+    } else if (sortDir === 'abc') {
       const sorted = docs.map(d => ({ d, t: cleanTitle(d) }));
       sorted.forEach(o => o.k = initialKey(o.t));
       sorted.sort((a, b) => (groupRank(a.k) - groupRank(b.k)) || a.t.localeCompare(b.t, 'ko'));
