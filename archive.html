@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mnemo Archive — MNEMO Records</title>
+  <meta property="og:title" content="mnemo Archive — MNEMO Records" />
+  <meta property="og:description" content="사진 한 장이 노래가 된 기록들" />
+  <style>
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+    @font-face { font-family: 'Suit'; src: url('https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2/fonts/static/woff2/SUIT-Heavy.woff2') format('woff2'); font-weight: 900; font-display: swap; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #F0F0F3;
+      --bg2: #E6E6EA;
+      --ink: #1C1714;
+      --ink2: #6E6E7A;
+      --ink3: #AEAEB8;
+      --or: #F04C25;
+      --border: #DCDCE0;
+      --white: #FAFAFA;
+      --mute: rgba(0,0,0,0.25);
+      --gray: #818181;
+      --gray2: #7F7F7F;
+      --lyric: #C4C4C4;
+      --helv: 'Helvetica Neue', Helvetica, Arial, 'Suit', sans-serif;
+      --left-w: 320px;
+      --pl-w: 50vw;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Suit', 'Apple SD Gothic Neo', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    button { font-family: inherit; }
+
+    /* ══════════ LAYOUT ══════════ */
+    .app {
+      display: grid;
+      grid-template-columns: var(--left-w) minmax(0, 1fr) 0px;
+      transition: grid-template-columns 0.3s ease;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .app.player-open { grid-template-columns: var(--left-w) minmax(0, 1fr) var(--pl-w); }
+
+    /* 좁은 화면: 왼쪽 패널을 서랍으로 접는다 (JS가 .left-collapsed 를 붙임) */
+    .left { grid-column: 1; grid-row: 1; }
+    .center { grid-column: 2; grid-row: 1; }
+    .right { grid-column: 3; grid-row: 1; }
+    .app.left-collapsed { grid-template-columns: 0 minmax(0, 1fr) 0; }
+    .app.left-collapsed.player-open { grid-template-columns: 0 minmax(0, 1fr) var(--pl-w); }
+    .app.left-collapsed .left {
+      position: fixed; left: 0; top: 0; bottom: 0; width: 320px; z-index: 80;
+      transform: translateX(-100%); transition: transform 0.28s ease;
+    }
+    .app.left-collapsed.left-open .left { transform: none; box-shadow: 8px 0 40px rgba(0,0,0,0.14); }
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 75; display: none; }
+    .app.left-collapsed.left-open .scrim { display: block; }
+    .filter-toggle {
+      display: none; width: 43px; height: 43px; flex-shrink: 0; border: none; border-radius: 6px;
+      background: rgba(0,0,0,0.05); cursor: pointer; align-items: center; justify-content: center; position: relative;
+    }
+    .filter-toggle:hover { background: rgba(0,0,0,0.09); }
+    .filter-toggle.has-filter::after {
+      content: ''; position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--or);
+    }
+    .app.left-collapsed .filter-toggle { display: flex; }
+    @media (max-width: 1100px) { :root { --pl-w: 60vw; } }
+
+    /* ══════════ LEFT ══════════ */
+    .left {
+      background: var(--white);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .left-head {
+      height: 74px;
+      flex-shrink: 0;
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      padding: 16px 16px 0;
+    }
+    .left-head::after {
+      content: ''; position: absolute; left: 16px; right: 16px; bottom: 0;
+      height: 1px; background: var(--border);
+    }
+    .logo { width: 55px; height: 40px; object-fit: contain; flex-shrink: 0; display: block; }
+    .clock-date { margin-left: 16px; font-family: var(--helv); line-height: normal; }
+    .clock-day { font-size: 18px; letter-spacing: -0.54px; color: #000; line-height: 18px; }
+    .clock-md { font-size: 20px; letter-spacing: -0.6px; color: var(--mute); line-height: 20px; margin-top: 0; white-space: nowrap; }
+    .clock-time {
+      margin-left: auto;
+      font-size: 38px; font-weight: 400; letter-spacing: -1.9px; line-height: normal;
+      color: #000; margin-top: -3px;
+    }
+
+    .left-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+    .left-scroll::-webkit-scrollbar { width: 0; }
+
+    /* CALENDAR */
+    .cal {
+      padding: 22px 28px 22px;
+      position: relative;
+    }
+    .cal::after {
+      content: ''; position: absolute; left: 21px; right: 14px; bottom: 0;
+      height: 1px; background: var(--border);
+    }
+    .cal-header { display: flex; align-items: center; margin-bottom: 14px; gap: 8px; }
+    .cal-month { font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .today-btn {
+      margin-left: auto;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 20px;
+      border: 1px solid var(--border); background: none; color: var(--ink3);
+      cursor: default; transition: all 0.12s;
+    }
+    .today-btn.on { border-color: var(--ink); background: var(--ink); color: var(--white); cursor: pointer; }
+    .today-btn.on:hover { background: var(--or); border-color: var(--or); }
+    .cal-nav { display: flex; gap: 6px; }
+    .cal-nav button { background: none; border: none; cursor: pointer; color: var(--ink2); font-size: 12px; padding: 2px 4px; }
+    .cal-nav button:hover { color: var(--ink); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+    .cal-dow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink3); text-transform: uppercase; padding-bottom: 6px; }
+    .cal-day {
+      font-size: 12.5px; color: var(--ink2);
+      border-radius: 50%; position: relative; aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s; cursor: default;
+    }
+    .cal-day.has-release { cursor: pointer; }
+    .cal-day.has-release:hover { background: var(--bg2); color: var(--ink); }
+    .cal-day.today { background: var(--ink); color: var(--white); font-weight: 700; }
+    .cal-day.today.dim { background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+    .cal-day.selected, .cal-day.selected:hover { background: var(--ink); color: var(--white); font-weight: 700; }
+    .cal-day.has-release::after {
+      content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: var(--or);
+    }
+    .cal-day.today:not(.dim)::after, .cal-day.selected::after { background: var(--white); }
+    .cal-day.other-month { color: var(--ink3); }
+
+    /* FILTERS */
+    .filters { padding: 22px 28px 24px; }
+    .filter-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink3); margin-bottom: 10px; }
+    .sort-btns { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 24px; }
+    .sort-btn {
+      flex: 1; font-size: 11.5px; font-weight: 500; letter-spacing: 0.08em; padding: 10px 0;
+      border: none; background: none; cursor: pointer; color: var(--ink2); transition: all 0.12s;
+    }
+    .sort-btn:not(:last-child) { border-right: 1px solid var(--border); }
+    .sort-btn.active { background: var(--ink); color: var(--white); }
+    .genre-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+    .genre-tag {
+      font-size: 11.5px; font-weight: 500; letter-spacing: 0.06em; padding: 6px 12px;
+      border-radius: 20px; border: 1px solid var(--border); background: none;
+      cursor: pointer; color: var(--ink2); transition: all 0.12s;
+    }
+    .genre-tag:hover { border-color: var(--ink); color: var(--ink); }
+    .genre-tag.active { background: var(--ink); border-color: var(--ink); color: var(--white); }
+
+    .left-foot { flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 26px 26px; }
+    .del-mode-btn {
+      height: 25px; width: 67px; font-size: 11px; font-weight: 600; letter-spacing: 0.99px;
+      background: none; border: 1px solid var(--mute); border-radius: 2px;
+      cursor: pointer; color: var(--mute); transition: all 0.12s; white-space: nowrap;
+    }
+    .del-mode-btn.active { background: #c0392b; border-color: #c0392b; color: white; width: auto; padding: 0 8px; }
+    .track-count { font-size: 13px; font-weight: 500; letter-spacing: 0.52px; color: var(--mute); }
+
+    /* ══════════ CENTER ══════════ */
+    .center { overflow-y: auto; overflow-x: hidden; position: relative; min-width: 0; }
+    .center::-webkit-scrollbar { width: 4px; }
+    .center::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .center-header {
+      position: sticky; top: 0; z-index: 10; background: var(--bg);
+      height: 74px; display: flex; align-items: flex-start; gap: 16px;
+      padding: 16px 16px 0;
+    }
+    .center-header::after {
+      content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; height: 1px; background: var(--border);
+    }
+    .tab-pill {
+      height: 43px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 20px;
+      background: rgba(0,0,0,0.05); border-radius: 6px;
+      font-family: var(--helv); font-size: 18px; letter-spacing: -0.54px; color: #000; white-space: nowrap;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--or); flex-shrink: 0; }
+    .marquee {
+      height: 43px; width: 318px; min-width: 0; flex-shrink: 1;
+      background: var(--or); border-radius: 999px; overflow: hidden;
+      display: flex; align-items: center; color: #fff;
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+              mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    }
+    .marquee-track { display: flex; white-space: nowrap; will-change: transform; animation: mq var(--mq-dur, 16s) linear infinite; }
+    .marquee-seg { display: flex; align-items: center; gap: 18px; padding-right: 18px; font-size: 18px; letter-spacing: -0.54px; text-transform: uppercase; }
+    .marquee-seg .arr { font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 700; }
+    @keyframes mq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* ── GROUP ── */
+    .track-list { padding-bottom: 48px; }
+    .group {
+      display: grid;
+      grid-template-columns: minmax(0, 408fr) minmax(0, 992fr);
+      align-items: start;
+      position: relative;
+    }
+    .group + .group::before {
+      content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 1px; background: var(--border);
+    }
+    .group-head { position: sticky; top: 74px; display: flex; align-items: flex-start; padding-left: 16px; height: 200px; overflow: hidden; }
+    .big {
+      font-size: 170px; font-weight: 800; letter-spacing: -13.6px; line-height: normal;
+      color: var(--ink); margin-top: -14px; white-space: nowrap;
+    }
+    .big-dow {
+      font-size: 24px; font-weight: 900; letter-spacing: -1.2px; line-height: normal;
+      color: var(--or); margin-top: 37px; margin-left: 18px;
+    }
+    .group-rows { min-width: 0; }
+
+    /* ── ROW ── */
+    .row {
+      height: 232px; display: flex; align-items: center;
+      padding: 0 32px 0 16px; cursor: pointer; transition: background 0.1s;
+    }
+    .row:hover { background: rgba(230,230,234,0.6); }
+    .row.active { background: var(--bg2); }
+    .thumb {
+      width: 200px; height: 200px; flex-shrink: 0; border-radius: 6px; overflow: hidden;
+      background: var(--bg2); margin-right: 20px;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--ink3); }
+    .info { flex: 1; min-width: 0; }
+    .t-title {
+      font-size: 16px; font-weight: 800; color: var(--ink); line-height: 20px; max-width: 280px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .t-sub { display: flex; gap: 12px; margin-top: 6px; font-size: 16px; font-weight: 600; line-height: 20px; min-width: 0; }
+    .t-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .t-dur { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .t-genre {
+      width: 180px; flex-shrink: 0; font-size: 16px; font-weight: 600; line-height: 20px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .more-btn {
+      width: 20px; height: 20px; margin-left: 30px; flex-shrink: 0; padding: 0; border: none; background: none;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;
+    }
+    .more-btn::before { content: ''; position: absolute; inset: -12px -10px; }
+    .more-btn svg { display: block; }
+    .del-x {
+      display: none; width: 22px; height: 22px; margin-left: 29px; border-radius: 50%; background: #c0392b; border: none;
+      color: white; font-size: 13px; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    body.del-mode .del-x { display: flex; }
+    /* 관리자 다운로드 (삭제 모드에서만) */
+    .dl-x {
+      display: none; width: 22px; height: 22px; margin-left: 20px; border-radius: 50%; background: var(--ink); border: none;
+      color: white; cursor: pointer; align-items: center; justify-content: center; flex-shrink: 0; padding: 0;
+    }
+    .dl-x:hover { background: var(--or); }
+    .dl-x.busy { opacity: .4; pointer-events: none; }
+    body.del-mode .dl-x { display: flex; }
+    body.del-mode .del-x { margin-left: 8px; }
+    body.del-mode .more-btn { display: none; }
+
+    /* player open → compact list */
+    .app.player-open .group { display: block; }
+    .app.player-open .group-head { position: static; height: 181px; }
+    .app.player-open .big { margin-top: -15px; }
+    .app.player-open .row { height: 152px; padding: 0 16px; }
+    .app.player-open .thumb { width: 120px; height: 120px; border-radius: 4px; margin-right: 16px; }
+    .app.player-open .t-title { max-width: 300px; }
+    .app.player-open .t-genre { display: none; }
+    .app.player-open .more-btn { margin-left: 16px; }
+
+    .empty-state { padding: 80px 36px; text-align: center; color: var(--ink3); font-size: 13px; letter-spacing: 0.06em; }
+    .loading-state { padding: 80px 36px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .ld { width: 5px; height: 5px; border-radius: 50%; background: var(--or); animation: ldp 1s ease-in-out infinite; }
+    .ld:nth-child(2) { animation-delay: 0.2s; }
+    .ld:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes ldp { 0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)} }
+
+    /* ══════════ MENU (⋯) ══════════ */
+    .menu {
+      position: fixed; z-index: 60; min-width: 148px; padding: 6px;
+      background: var(--white); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.10); display: none;
+    }
+    .menu.show { display: block; }
+    .menu button {
+      width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+      background: none; border: none; border-radius: 5px; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--ink); text-align: left;
+    }
+    .menu button:hover { background: var(--bg2); }
+    .menu svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .menu .m-count { margin-left: auto; color: var(--gray); font-weight: 500; }
+
+    /* ══════════ RIGHT (PLAYER) ══════════ */
+    .right { background: var(--white); position: relative; overflow: hidden; min-width: 0; }
+    .player { position: absolute; inset: 0; width: var(--pl-w); }
+    .close-btn {
+      position: absolute; top: 21px; right: 21px; width: 32px; height: 32px; z-index: 5;
+      border: none; background: none; padding: 0; cursor: pointer;
+    }
+    .close-btn:hover path { fill: #9a9a9a; }
+    .pl-grid {
+      position: absolute; inset: 0;
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: clamp(24px, 2.85vw, 49px);
+      padding: 90px clamp(24px, 2.56vw, 44px) 0 clamp(24px, 2.62vw, 45px);
+    }
+    .pl-meta { min-width: 0; }
+    .pl-cover { width: 100%; max-width: 360px; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg2); position: relative; }
+    .pl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pl-cover .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 48px; color: var(--ink3); }
+    .pl-title { margin-top: 24px; font-size: clamp(22px, 1.86vw, 32px); font-weight: 700; line-height: 1.35; color: var(--ink); max-width: 360px; word-break: keep-all; overflow-wrap: anywhere; }
+    .pl-artist { font-size: clamp(22px, 1.86vw, 32px); font-weight: 700; line-height: 1.35; color: var(--or); max-width: 360px; word-break: keep-all; }
+    .pl-genre { margin-top: 4px; font-size: 16px; font-weight: 700; line-height: 1.35; color: var(--gray); }
+    .pl-actions { margin-top: 24px; display: flex; align-items: center; gap: 12px; }
+    .icon-btn { width: 24px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; display: block; }
+    .icon-btn svg { display: block; }
+    .like-wrap { display: flex; align-items: center; gap: 4px; }
+    .like-count { font-size: 16px; font-weight: 500; line-height: 1.35; color: var(--gray); font-variant-numeric: tabular-nums; }
+    .like-btn.liked { --lk-s: var(--or); --lk-f: var(--or); }
+    .like-btn.pop { animation: pop 0.3s ease; }
+    @keyframes pop { 50% { transform: scale(1.25); } }
+
+    .pl-lyrics {
+      position: relative; min-width: 0; height: 100%;
+      overflow-y: auto; scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 330px), transparent calc(100% - 140px));
+              mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 330px), transparent calc(100% - 140px));
+    }
+    .pl-lyrics::-webkit-scrollbar { display: none; }
+    .lyr-inner { padding-bottom: 60vh; }
+    .ly {
+      font-size: clamp(20px, 1.75vw, 30px); font-weight: 700; line-height: 1.2; letter-spacing: -0.03em;
+      color: var(--lyric); margin-bottom: 1.2em; word-break: keep-all; overflow-wrap: anywhere;
+      transition: color 0.35s, filter 0.35s, font-weight 0.2s;
+    }
+    .ly.gap { margin-top: 1.2em; }
+    .timed .ly { cursor: pointer; }
+    .timed .ly:hover { color: #9d9d9d; }
+    .ly.on, .timed .ly.on:hover { color: var(--ink); font-weight: 800; }
+    .untimed .ly { color: var(--ink); }
+    .ly-empty { font-size: 16px; color: var(--ink3); letter-spacing: 0.06em; }
+
+    .pl-bottom {
+      position: absolute; left: 28px; right: 28px; bottom: 0; height: 114px; z-index: 3;
+    }
+    .pbar { position: relative; height: 4px; border-radius: 3.5px; background: var(--gray2); cursor: pointer; touch-action: none; }
+    .pbar::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
+    .pfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: var(--or); border-radius: 3.5px; pointer-events: none; }
+    .ptimes { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 1.2px; color: var(--gray2); font-variant-numeric: tabular-nums; }
+    .ctrl { position: absolute; left: 50%; transform: translateX(-50%); top: 20px; width: 232px; height: 48px; display: flex; justify-content: space-between; }
+    .ctrl button { width: 48px; height: 48px; border: none; background: none; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .ctrl button:hover { --ic: var(--ink); }
+    .ctrl .flip svg { transform: scaleX(-1); }
+    .ctrl button:disabled { opacity: 0.35; cursor: default; }
+    .ctrl button:disabled:hover { --ic: var(--gray2); }
+
+    /* ══════════ MODALS ══════════ */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+    .modal-bg.show { display: flex; }
+    .modal { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 28px 24px 20px; width: 300px; max-width: 100%; display: flex; flex-direction: column; gap: 12px; }
+    .modal-title { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+    .modal-sub { font-size: 12px; color: var(--ink2); line-height: 1.5; }
+    .pw-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); font-size: 14px; color: var(--ink); outline: none; letter-spacing: 0.2em; font-family: inherit; }
+    .pw-input:focus { border-color: var(--ink); }
+    .pw-input.error { border-color: #c0392b; }
+    .pw-err { font-size: 11px; color: #c0392b; display: none; }
+    .pw-err.show { display: block; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-ghost { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: none; border: 1px solid var(--border); border-radius: 2px; padding: 7px 12px; cursor: pointer; color: var(--ink2); }
+    .btn-red { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: #c0392b; border: 1px solid #c0392b; border-radius: 2px; padding: 7px 12px; cursor: pointer; color: white; }
+    .btn-ink { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 7px 12px; cursor: pointer; color: white; }
+    .btn-ink:hover { background: var(--or); border-color: var(--or); }
+
+    .qr-modal { width: 340px; align-items: center; text-align: center; padding: 28px 28px 22px; }
+    .qr-box { width: 220px; height: 220px; padding: 12px; background: #fff; border-radius: 8px; border: 1px solid var(--border); }
+    .qr-box img, .qr-box canvas { width: 100% !important; height: 100% !important; display: block; image-rendering: pixelated; }
+    .qr-song { font-size: 16px; font-weight: 800; margin-top: 4px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .qr-url { font-size: 11px; color: var(--ink2); word-break: break-all; line-height: 1.4; }
+    .qr-modal .modal-btns { width: 100%; justify-content: center; margin-top: 4px; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0;
+      background: var(--ink); color: var(--white); font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      padding: 10px 16px; border-radius: 999px; z-index: 200; transition: all 0.25s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ══════════ MOBILE ══════════ */
+    @media (max-width: 768px) {
+      .app, .app.player-open {
+        display: flex; flex-direction: column; height: 100dvh;
+      }
+      .ly { font-size: 22px; }
+      .pl-title, .pl-artist { font-size: 24px; }
+      .left { flex-shrink: 0; max-height: 44vh; }
+      .left-head { height: 64px; padding: 12px 16px 0; }
+      .logo { width: 44px; height: 32px; }
+      .clock-day { font-size: 15px; line-height: 16px; }
+      .clock-md { font-size: 16px; line-height: 18px; }
+      .clock-time { font-size: 30px; }
+      .cal { padding: 14px 16px 16px; }
+      .cal-day { aspect-ratio: auto; height: 30px; border-radius: 15px; width: 30px; margin: 0 auto; }
+      .cal-header { margin-bottom: 8px; }
+      .cal-dow { padding-bottom: 2px; }
+      .filters { padding: 14px 16px 16px; }
+      .left-foot { padding: 8px 16px 12px; border-top: 1px solid var(--border); }
+
+      .center { flex: 1; min-height: 0; }
+      .center-header { height: 60px; padding: 10px 12px 0; gap: 8px; }
+      .tab-pill { height: 38px; padding: 0 12px; font-size: 15px; }
+      .marquee { height: 38px; flex: 1; width: auto; }
+      .marquee-seg { font-size: 15px; }
+
+      .group, .app.player-open .group { display: grid; grid-template-columns: 84px minmax(0, 1fr); }
+      .group-head, .app.player-open .group-head { position: static; height: auto; flex-direction: column; padding: 12px 0 12px 12px; }
+      .big, .app.player-open .big { font-size: 48px; letter-spacing: -3px; margin-top: 0; line-height: 1; }
+      .big-dow { font-size: 14px; letter-spacing: -0.5px; margin: 4px 0 0 2px; }
+      .row, .app.player-open .row { height: 88px; padding: 0 12px; }
+      .thumb, .app.player-open .thumb { width: 64px; height: 64px; border-radius: 4px; margin-right: 12px; }
+      .t-title { font-size: 14px; }
+      .t-sub { font-size: 13px; margin-top: 3px; gap: 8px; }
+      .t-genre { display: none; }
+      .more-btn, .app.player-open .more-btn { margin-left: 12px; }
+
+      .right { display: none; }
+      .app.player-open .right { display: block; position: fixed; inset: 0; z-index: 50; }
+      .player { width: 100%; overflow-y: auto; }
+      .pl-grid { position: static; display: block; padding: 60px 20px 150px; }
+      .pl-cover { max-width: none; width: min(100%, 42vh); margin: 0 auto; }
+      .pl-title, .pl-artist { font-size: 24px; max-width: none; }
+      .pl-title { margin-top: 18px; }
+      .pl-lyrics { height: auto; overflow: visible; margin-top: 32px; -webkit-mask-image: none; mask-image: none; }
+      .lyr-inner { padding-bottom: 0; }
+      .ly { font-size: 22px; margin-bottom: 22px; }
+      .ly.gap { margin-top: 22px; }
+      .pl-bottom { position: fixed; left: 0; right: 0; bottom: 0; height: auto; padding: 14px 20px 18px; background: var(--white); border-top: 1px solid var(--border); }
+      .ctrl { position: relative; left: auto; transform: none; top: auto; margin: 6px auto 0; }
+      .close-btn { position: fixed; top: 14px; right: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M22.3856 10.8938L14.5179 6.18662C14.3233 6.06819 14.1004 6.00421 13.8726 6.00135C13.6448 5.99849 13.4204 6.05687 13.2228 6.17038C13.0085 6.2952 12.831 6.47452 12.7084 6.69013C12.5857 6.90574 12.5224 7.14996 12.5247 7.398V10.6909L4.9965 6.18537C4.80186 6.06694 4.57899 6.00296 4.35117 6.0001C4.12336 5.99724 3.89895 6.05562 3.7014 6.16913C3.48705 6.29395 3.30956 6.47327 3.18693 6.68888C3.06431 6.90449 3.00094 7.14872 3.00324 7.39675V16.6028C3.00086 16.8509 3.0642 17.0952 3.18683 17.3109C3.30945 17.5266 3.48699 17.706 3.7014 17.8309C3.89895 17.9444 4.12336 18.0028 4.35117 17.9999C4.57899 17.997 4.80186 17.9331 4.9965 17.8146L12.5247 13.307V16.6012C12.522 16.8496 12.5852 17.0942 12.7078 17.3102C12.8305 17.5262 13.0082 17.7059 13.2228 17.8309C13.4204 17.9444 13.6448 18.0028 13.8726 17.9999C14.1004 17.997 14.3233 17.9331 14.5179 17.8146L22.3856 13.1074C22.5726 12.9903 22.7268 12.8275 22.8337 12.6344C22.9406 12.4413 22.9967 12.2242 22.9967 12.0035C22.9967 11.7828 22.9406 11.5658 22.8337 11.3727C22.7268 11.1796 22.5726 11.0168 22.3856 10.8996V10.8938Z" style="fill:var(--ic,#7F7F7F)"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M20.4933 9.35309C20.9483 9.60849 21.3289 9.98976 21.5944 10.456C21.8598 10.9223 22 11.456 22 12C22 12.544 21.8598 13.0777 21.5944 13.544C21.3289 14.0103 20.9483 14.3915 20.4933 14.6469L8.35519 21.6137C6.40071 22.7367 4 21.2767 4 18.9678V5.03322C4 2.72329 6.40071 1.26433 8.35519 2.3853L20.4933 9.35309Z" style="fill:var(--ic,#7F7F7F)"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="5" y="3" width="5" height="18" rx="2" style="fill:var(--ic,#7F7F7F)"/><rect x="14" y="3" width="5" height="18" rx="2" style="fill:var(--ic,#7F7F7F)"/></symbol>
+    <symbol id="i-like" viewBox="0 0 24 24"><path d="M7.5 4C4.4625 4 2 6.4625 2 9.5C2 15 8.5 20 12 21.163C15.5 20 22 15 22 9.5C22 6.4625 19.5375 4 16.5 4C14.64 4 12.995 4.9235 12 6.337C11.4928 5.61469 10.819 5.0252 10.0357 4.61841C9.25238 4.21162 8.38263 3.9995 7.5 4Z" style="stroke:var(--lk-s,#818181);fill:var(--lk-f,none)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M15 6L12 3L9 6M12 3V13M7 10C6.068 10 5.602 10 5.235 10.152C4.99218 10.2525 4.77155 10.3999 4.58572 10.5857C4.3999 10.7716 4.25251 10.9922 4.152 11.235C4 11.602 4 12.068 4 13V17.8C4 18.92 4 19.48 4.218 19.908C4.40974 20.2843 4.71569 20.5903 5.092 20.782C5.519 21 6.079 21 7.197 21H16.804C17.922 21 18.481 21 18.908 20.782C19.284 20.59 19.59 20.284 19.782 19.908C20 19.48 20 18.921 20 17.803V13C20 12.068 20 11.602 19.848 11.235C19.7475 10.9922 19.6001 10.7716 19.4143 10.5857C19.2284 10.3999 19.0078 10.2525 18.765 10.152C18.398 10 17.932 10 17 10" stroke="#818181" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+    <symbol id="i-more" viewBox="0 0 20 4"><circle cx="2" cy="2" r="2" fill="#1C1714"/><circle cx="10" cy="2" r="2" fill="#1C1714"/><circle cx="18" cy="2" r="2" fill="#1C1714"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- ══ LEFT ══ -->
+  <aside class="left">
+    <div class="left-head">
+      <img class="logo" src="res/logo_disc_black.png" alt="MNEMO records" />
+      <div class="clock-date">
+        <div class="clock-day" id="clockDay">—</div>
+        <div class="clock-md" id="clockMd">—</div>
+      </div>
+      <div class="clock-time" id="clockTime">--:--</div>
+    </div>
+
+    <div class="left-scroll">
+      <div class="cal">
+        <div class="cal-header">
+          <span class="cal-month" id="calMonth">Calendar</span>
+          <button class="today-btn" id="todayBtn" onclick="goToday()" disabled>Today</button>
+          <div class="cal-nav">
+            <button onclick="changeMonth(-1)" aria-label="이전 달">&#8249;</button>
+            <button onclick="changeMonth(1)" aria-label="다음 달">&#8250;</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+
+      <div class="filters">
+        <div class="filter-label">정렬</div>
+        <div class="sort-btns">
+          <button class="sort-btn active" id="btnNew" onclick="setSort('desc')">최신순</button>
+          <button class="sort-btn" id="btnOld" onclick="setSort('asc')">오래된순</button>
+          <button class="sort-btn" id="btnAbc" onclick="setSort('abc')">가나다순</button>
+        </div>
+        <div class="filter-label">장르</div>
+        <div class="genre-tags" id="genreTags"></div>
+      </div>
+    </div>
+
+    <div class="left-foot">
+      <button class="del-mode-btn" id="delModeBtn" onclick="toggleDelMode()">삭제 모드</button>
+      <span class="track-count" id="trackCount">— tracks</span>
+    </div>
+  </aside>
+
+  <div class="scrim" onclick="toggleLeft(false)"></div>
+
+  <!-- ══ CENTER ══ -->
+  <main class="center" id="centerEl">
+    <div class="center-header">
+      <button class="filter-toggle" id="filterToggle" onclick="toggleLeft()" aria-label="캘린더·필터 열기">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1714" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      </button>
+      <div class="tab-pill"><span class="dot"></span>mnemo Archive</div>
+      <div class="marquee" aria-live="off"><div class="marquee-track" id="marqueeTrack"></div></div>
+    </div>
+    <div class="track-list">
+      <div id="loadingState" class="loading-state"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div>
+      <div id="trackListEl"></div>
+    </div>
+  </main>
+
+  <!-- ══ RIGHT ══ -->
+  <section class="right" id="rightPanel" aria-hidden="true">
+    <div class="player">
+      <button class="close-btn" onclick="closePlayer()" aria-label="닫기">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M16 2C23.7313 2 30 8.26875 30 16C30 23.7313 23.7313 30 16 30C8.26875 30 2 23.7313 2 16C2 8.26875 8.26875 2 16 2ZM19.9982 10.5883C19.9975 10.5885 19.9969 10.5889 19.9957 10.5902L16 14.5858L12.0044 10.5902C12.0031 10.5889 12.0025 10.5885 12.0017 10.5883C12.001 10.5881 12.0003 10.5881 11.9996 10.5883C11.9989 10.5885 11.9983 10.5889 11.997 10.5902L10.5901 11.997C10.5889 11.9983 10.5886 11.9989 10.5883 11.9996C10.5881 12.0003 10.5881 12.0011 10.5883 12.0018L10.5886 12.0025C10.5891 12.0032 10.5896 12.0038 10.5902 12.0043L14.5858 16L10.5902 19.9957C10.5889 19.9969 10.5885 19.9976 10.5883 19.9983C10.5881 19.999 10.5881 19.9998 10.5883 20.0005C10.5885 20.0012 10.5889 20.0017 10.5902 20.003L11.997 21.4099C11.9983 21.4112 11.9989 21.4115 11.9996 21.4117C12.0003 21.4119 12.0011 21.4119 12.0018 21.4117C12.0025 21.4115 12.0031 21.4112 12.0043 21.4099L16 17.4142L19.9957 21.4098C19.9969 21.4111 19.9976 21.4115 19.9983 21.4117C19.999 21.4119 19.9998 21.4119 20.0005 21.4117C20.0012 21.4115 20.0017 21.4111 20.003 21.4098L21.4099 20.003C21.4112 20.0018 21.4115 20.0011 21.4117 20.0004C21.4119 19.9997 21.4119 19.9989 21.4117 19.9982L21.4114 19.9975C21.411 19.9968 21.4105 19.9962 21.4099 19.9957L17.4142 16L21.4098 12.0044C21.4111 12.0031 21.4115 12.0025 21.4117 12.0017C21.4119 12.001 21.4119 12.0003 21.4117 11.9996C21.4115 11.9989 21.4111 11.9983 21.4098 11.997L20.003 10.5901C20.0023 10.5893 20.0014 10.5887 20.0004 10.5883C19.9997 10.5881 19.999 10.5881 19.9982 10.5883Z" fill="#C4C4C4"/></svg>
+      </button>
+
+      <div class="pl-grid">
+        <div class="pl-meta">
+          <div class="pl-cover">
+            <div class="ph" id="plCoverPh">◎</div>
+            <img id="plCoverImg" alt="" style="display:none" />
+          </div>
+          <div class="pl-title" id="plTitle">—</div>
+          <div class="pl-artist" id="plArtist">—</div>
+          <div class="pl-genre" id="plGenre">—</div>
+          <div class="pl-actions">
+            <button class="icon-btn" id="plShare" onclick="shareTrack(activeDocId)" aria-label="공유"><svg width="24" height="24"><use href="#i-share"/></svg></button>
+            <div class="like-wrap">
+              <button class="icon-btn like-btn" id="plLike" onclick="toggleLike(activeDocId)" aria-label="좋아요"><svg width="24" height="24" fill="none"><use href="#i-like"/></svg></button>
+              <span class="like-count" id="plLikeCount">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="pl-lyrics" id="plLyrics"><div class="lyr-inner" id="lyrInner"></div></div>
+      </div>
+
+      <div class="pl-bottom">
+        <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>
+        <div class="ptimes"><span id="tNow">0:00</span><span id="tTotal">0:00</span></div>
+        <div class="ctrl">
+          <button class="flip" id="btnPrev" onclick="prevTrack()" aria-label="이전 곡"><svg width="24" height="24"><use href="#i-next"/></svg></button>
+          <button id="btnPlay" onclick="togglePlay()" aria-label="재생"><svg width="24" height="24" id="playSvg"><use href="#i-play"/></svg></button>
+          <button id="btnNext" onclick="nextTrack()" aria-label="다음 곡"><svg width="24" height="24"><use href="#i-next"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ⋯ MENU -->
+<div class="menu" id="moreMenu">
+  <button id="menuShare"><svg viewBox="0 0 24 24"><use href="#i-share"/></svg>공유</button>
+  <button id="menuLike" class="like-btn"><svg viewBox="0 0 24 24" fill="none"><use href="#i-like"/></svg><span id="menuLikeTxt">좋아요</span><span class="m-count" id="menuLikeCount">0</span></button>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-bg" id="pwModal">
+  <div class="modal">
+    <div class="modal-title">삭제 확인</div>
+    <div class="modal-sub">관리자 비밀번호를 입력하세요.<br>삭제된 기록은 복구할 수 없습니다.</div>
+    <input class="pw-input" id="pwInput" type="password" placeholder="••••••" maxlength="20" onkeydown="if(event.key==='Enter')confirmDelete()" />
+    <div class="pw-err" id="pwErr">비밀번호가 올바르지 않습니다</div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="cancelDelete()">취소</button>
+      <button class="btn-red" onclick="confirmDelete()">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE (PC) MODAL -->
+<div class="modal-bg" id="qrModal">
+  <div class="modal qr-modal">
+    <div class="modal-title">휴대폰으로 듣기</div>
+    <div class="qr-box" id="qrBox"></div>
+    <div class="qr-song" id="qrSong">—</div>
+    <div class="qr-url" id="qrUrl"></div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="closeQr()">닫기</button>
+      <button class="btn-ink" onclick="copyShareUrl()">링크 복사</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<audio id="audioEl" preload="none"></audio>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDVDgfy_ebxKW87U6Cvj6cJz3RU0AkHWlY",
+    authDomain: "mnemo-20682.firebaseapp.com",
+    projectId: "mnemo-20682",
+    storageBucket: "mnemo-20682.firebasestorage.app",
+    messagingSenderId: "489626254404",
+    appId: "1:489626254404:web:798116fb0d13a1905c9011"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ── STATE ──
+  let allDocs = [];
+  let sortDir = 'desc';
+  let activeGenre = null;
+  let selectedDate = null;          // 'YYYY-MM-DD' | null
+  let activeDocId = null;
+  let isPlaying = false;
+  let viewList = [];                // 현재 화면 순서 (이전/다음 곡용)
+  let listSig = '';
+  const ADMIN_PW = 'tkrwp';
+  let pendingDeleteId = null;
+  let delMode = false;
+  window.activeDocId = null;
+
+  const $ = (id) => document.getElementById(id);
+  const audioEl = $('audioEl');
+  const appEl = $('app');
+
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const dayKey = (dt) => `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+  const docDate = (d) => d.createdAt?.toDate ? d.createdAt.toDate() : (d.createdAt ? new Date(d.createdAt) : new Date());
+  const cleanTitle = (d) => {
+    const t = (d.title || '').replace(/\*\*/g, '').trim();
+    if (t) return t;
+    const first = (d.lyrics || '').replace(/\*\*/g, '').split('\n').map(l => l.replace(/\[[^\]]*\]/g, '').trim()).find(Boolean);
+    return first || '—';
+  };
+  const artistOf = (d) => (d.artist || '').trim() || '익명의 아티스트';
+  const genresOf = (d) => (d.genre || '').split(',').map(g => g.trim()).filter(Boolean);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const fmt = (s) => { if (!s || !isFinite(s)) return '0:00'; return Math.floor(s / 60) + ':' + pad2(Math.floor(s % 60)); };
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ══════════ RESPONSIVE: 왼쪽 패널 접기 ══════════
+  function updateLayout() {
+    const w = window.innerWidth;
+    const collapsed = w > 768 && (w <= 1100 || (appEl.classList.contains('player-open') && w <= 1440));
+    appEl.classList.toggle('left-collapsed', collapsed);
+    if (!collapsed) appEl.classList.remove('left-open');
+  }
+  window.toggleLeft = (force) => {
+    const open = typeof force === 'boolean' ? force : !appEl.classList.contains('left-open');
+    appEl.classList.toggle('left-open', open);
+  };
+  function updateFilterDot() {
+    $('filterToggle').classList.toggle('has-filter', !!(selectedDate || activeGenre || sortDir !== 'desc'));
+  }
+  window.addEventListener('resize', updateLayout);
+  updateLayout();
+
+  // ══════════ CLOCK ══════════
+  function tick() {
+    const n = new Date();
+    $('clockDay').textContent = DAYS[n.getDay()];
+    $('clockMd').textContent = `${n.getDate()} ${MONTHS[n.getMonth()]}`;
+    $('clockTime').textContent = `${pad2(n.getHours())}:${pad2(n.getMinutes())}`;
+    // 날짜가 바뀌면 캘린더·배너도 갱신
+    const k = dayKey(n);
+    if (tick._k && tick._k !== k) { renderCal(); renderMarquee(); }
+    tick._k = k;
+  }
+  tick();
+  setInterval(tick, 5000);
+
+  // ══════════ CALENDAR ══════════
+  const now0 = new Date();
+  let calYear = now0.getFullYear(), calMonth = now0.getMonth();
+
+  function releaseDaySet() {
+    const s = new Set();
+    allDocs.forEach(d => s.add(dayKey(docDate(d))));
+    return s;
+  }
+
+  function renderCal() {
+    const grid = $('calGrid');
+    grid.innerHTML = '';
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el);
+    });
+    const today = new Date();
+    const todayK = dayKey(today);
+    const first = new Date(calYear, calMonth, 1).getDay();
+    const days = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevDays = new Date(calYear, calMonth, 0).getDate();
+    const rel = releaseDaySet();
+
+    for (let i = 0; i < first; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-day other-month'; el.textContent = prevDays - first + i + 1; grid.appendChild(el);
+    }
+    for (let d = 1; d <= days; d++) {
+      const k = `${calYear}-${pad2(calMonth+1)}-${pad2(d)}`;
+      const el = document.createElement('div');
+      el.className = 'cal-day';
+      el.textContent = d;
+      if (k === todayK) { el.classList.add('today'); if (selectedDate && selectedDate !== todayK) el.classList.add('dim'); }
+      if (k === selectedDate) el.classList.add('selected');
+      if (rel.has(k)) {
+        el.classList.add('has-release');
+        el.onclick = () => selectDate(k);
+      }
+      grid.appendChild(el);
+    }
+    updateTodayBtn();
+  }
+
+  function isDefaultView() {
+    const n = new Date();
+    return selectedDate === null && calYear === n.getFullYear() && calMonth === n.getMonth();
+  }
+  function updateTodayBtn() {
+    const b = $('todayBtn');
+    const on = !isDefaultView();
+    b.classList.toggle('on', on);
+    b.disabled = !on;
+  }
+
+  function selectDate(k) {
+    selectedDate = (selectedDate === k) ? null : k;
+    renderCal();
+    renderTracks(true);
+    $('centerEl').scrollTo({ top: 0 });
+  }
+
+  window.changeMonth = (dir) => {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCal();
+  };
+
+  window.goToday = () => {
+    const n = new Date();
+    calYear = n.getFullYear(); calMonth = n.getMonth();
+    const hadDate = selectedDate !== null;
+    selectedDate = null;
+    renderCal();
+    if (hadDate) { renderTracks(true); $('centerEl').scrollTo({ top: 0 }); }
+  };
+
+  // ══════════ MARQUEE ══════════
+  function renderMarquee() {
+    const n = new Date();
+    const k = dayKey(n);
+    const cnt = allDocs.filter(d => dayKey(docDate(d)) === k).length;
+    const md = `${pad2(n.getMonth()+1)}.${pad2(n.getDate())}`;
+    const seg = cnt > 0
+      ? `<span>${md} New releases ${cnt} Album</span><span class="arr">→</span><span>Listen now</span><span class="arr">→</span>`
+      : `<span>${md} No new releases today</span><span class="arr">→</span>`;
+    const sig = seg;
+    if (renderMarquee._sig === sig) return;
+    renderMarquee._sig = sig;
+    const track = $('marqueeTrack');
+    // 한 세그먼트가 배너보다 짧으면 여러 번 이어 붙인 뒤, 그 묶음을 2벌 만들어 -50% 루프
+    track.innerHTML = `<div class="marquee-seg">${seg}</div>`;
+    const segW = track.firstElementChild.getBoundingClientRect().width || 300;
+    const reps = Math.max(1, Math.ceil(420 / segW));
+    const half = Array.from({ length: reps }, () => `<div class="marquee-seg">${seg}</div>`).join('');
+    track.innerHTML = half + half;
+    track.style.setProperty('--mq-dur', ((segW * reps) / 55).toFixed(1) + 's');
+  }
+
+  // ══════════ FIRESTORE ══════════
+  const q = query(collection(db, 'archive'), orderBy('createdAt', 'desc'));
+  let autoSelectId = new URLSearchParams(window.location.search).get('id');
+
+  onSnapshot(q, snap => {
+    allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCal();
+    renderMarquee();
+    buildGenreTags();
+    renderTracks();
+    refreshActiveMeta();
+    if (autoSelectId) {
+      const target = allDocs.find(d => d.id === autoSelectId);
+      if (target) {
+        autoSelectId = null;
+        selectTrack(target, false);
+        setTimeout(() => {
+          const el = document.querySelector(`.row[data-id="${target.id}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 350);
+      }
+    }
+  });
+
+  // ══════════ GENRE / SORT ══════════
+  function buildGenreTags() {
+    const genres = new Set();
+    allDocs.forEach(d => genresOf(d).forEach(g => genres.add(g)));
+    const el = $('genreTags');
+    el.innerHTML = '';
+    const all = document.createElement('button');
+    all.className = 'genre-tag' + (activeGenre === null ? ' active' : '');
+    all.textContent = '전체';
+    all.onclick = () => setGenre(null);
+    el.appendChild(all);
+    genres.forEach(g => {
+      const btn = document.createElement('button');
+      btn.className = 'genre-tag' + (activeGenre === g ? ' active' : '');
+      btn.textContent = g;
+      btn.onclick = () => setGenre(g);
+      el.appendChild(btn);
+    });
+  }
+  function setGenre(g) { activeGenre = g; buildGenreTags(); renderTracks(true); }
+
+  window.setSort = (dir) => {
+    sortDir = dir;
+    $('btnNew').classList.toggle('active', dir === 'desc');
+    $('btnOld').classList.toggle('active', dir === 'asc');
+    $('btnAbc').classList.toggle('active', dir === 'abc');
+    renderTracks(true);
+    $('centerEl').scrollTo({ top: 0 });
+  };
+
+  // 가나다순 그룹 키 — 한글은 초성 대표 음절, 영문은 대문자, 나머지는 #
+  const CHO_KEY = ['가','가','나','다','다','라','마','바','바','사','사','아','자','자','차','카','타','파','하'];
+  const HANGUL_ORDER = ['가','나','다','라','마','바','사','아','자','차','카','타','파','하'];
+  function initialKey(title) {
+    const t = title.replace(/^[\s"'“”‘’()\[\]{}<>«»「」『』【】.,!?~\-_*#…·]+/, '');
+    const c = t.charAt(0);
+    if (!c) return '#';
+    const code = c.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) return CHO_KEY[Math.floor((code - 0xAC00) / 588)];
+    if (code >= 0x3131 && code <= 0x314E) { // 자음 단독 (ㄱ~ㅎ)
+      const map = { 'ㄱ':'가','ㄲ':'가','ㄴ':'나','ㄷ':'다','ㄸ':'다','ㄹ':'라','ㅁ':'마','ㅂ':'바','ㅃ':'바','ㅅ':'사','ㅆ':'사','ㅇ':'아','ㅈ':'자','ㅉ':'자','ㅊ':'차','ㅋ':'카','ㅌ':'타','ㅍ':'파','ㅎ':'하' };
+      return map[c] || '#';
+    }
+    const up = c.normalize('NFD').charAt(0).toUpperCase();
+    if (/[A-Z]/.test(up)) return up;
+    return '#';
+  }
+  function groupRank(k) {
+    const h = HANGUL_ORDER.indexOf(k);
+    if (h >= 0) return h;
+    if (/^[A-Z]$/.test(k)) return 100 + k.charCodeAt(0);
+    return 1000;
+  }
+
+  // ══════════ DURATIONS (음원 메타데이터에서 길이 읽기) ══════════
+  const durCache = {};
+  try { Object.assign(durCache, JSON.parse(localStorage.getItem('mnemo_dur') || '{}')); } catch (e) {}
+  const durQueue = [];
+  let durActive = 0;
+  function durationOf(d) {
+    if (d.duration && isFinite(d.duration)) return d.duration;
+    return durCache[d.id];
+  }
+  function requestDuration(d) {
+    if (durationOf(d) || !d.audioUrl || requestDuration.seen?.has(d.id)) return;
+    (requestDuration.seen ||= new Set()).add(d.id);
+    durQueue.push(d);
+    pumpDur();
+  }
+  function pumpDur() {
+    while (durActive < 3 && durQueue.length) {
+      const d = durQueue.shift();
+      durActive++;
+      const a = new Audio();
+      a.preload = 'metadata';
+      let done = false;
+      const fin = () => { if (done) return; done = true; durActive--; a.src = ''; pumpDur(); };
+      a.onloadedmetadata = () => {
+        if (isFinite(a.duration) && a.duration > 0) {
+          durCache[d.id] = a.duration;
+          try { localStorage.setItem('mnemo_dur', JSON.stringify(durCache)); } catch (e) {}
+          document.querySelectorAll(`[data-dur="${d.id}"]`).forEach(el => el.textContent = fmt(a.duration));
+        }
+        fin();
+      };
+      a.onerror = fin;
+      setTimeout(fin, 15000);
+      a.src = d.audioUrl;
+    }
+  }
+
+  // ══════════ RENDER LIST ══════════
+  function filteredDocs() {
+    let docs = [...allDocs];
+    if (selectedDate) docs = docs.filter(d => dayKey(docDate(d)) === selectedDate);
+    if (activeGenre) docs = docs.filter(d => genresOf(d).includes(activeGenre));
+    if (sortDir === 'asc') docs.reverse();
+    return docs;
+  }
+
+  function renderTracks(force) {
+    const el = $('trackListEl');
+    $('loadingState').style.display = 'none';
+    const docs = filteredDocs();
+    updateFilterDot();
+
+    // 좋아요 수만 바뀐 경우엔 목록을 다시 그리지 않는다 (스크롤·호버 유지)
+    const sig = sortDir + '|' + selectedDate + '|' + activeGenre + '|' + docs.map(d =>
+      [d.id, d.title, d.artist, d.genre, d.photo ? d.photo.length : 0, d.duration, d.createdAt?.seconds].join('~')).join('^');
+    if (!force && sig === listSig) return;
+    listSig = sig;
+
+    $('trackCount').textContent = docs.length + ' tracks';
+
+    if (docs.length === 0) {
+      viewList = [];
+      el.innerHTML = '<div class="empty-state">아직 저장된 기억이 없습니다</div>';
+      return;
+    }
+
+    const groups = [];
+    const byKey = {};
+    if (sortDir === 'abc') {
+      const sorted = docs.map(d => ({ d, t: cleanTitle(d) }));
+      sorted.forEach(o => o.k = initialKey(o.t));
+      sorted.sort((a, b) => (groupRank(a.k) - groupRank(b.k)) || a.t.localeCompare(b.t, 'ko'));
+      sorted.forEach(({ d, k }) => {
+        if (!byKey[k]) { byKey[k] = { label: k, dow: '', docs: [] }; groups.push(byKey[k]); }
+        byKey[k].docs.push(d);
+      });
+    } else {
+      docs.forEach(d => {
+        const dt = docDate(d);
+        const k = dayKey(dt);
+        if (!byKey[k]) { byKey[k] = { label: pad2(dt.getDate()), dow: DOW3[dt.getDay()], docs: [] }; groups.push(byKey[k]); }
+        byKey[k].docs.push(d);
+      });
+    }
+
+    viewList = groups.flatMap(g => g.docs);
+    const frag = document.createDocumentFragment();
+    groups.forEach(g => {
+      const group = document.createElement('div');
+      group.className = 'group';
+      const head = document.createElement('div');
+      head.className = 'group-head';
+      head.innerHTML = `<div class="big">${esc(g.label)}</div>${g.dow ? `<div class="big-dow">${g.dow}</div>` : ''}`;
+      const rows = document.createElement('div');
+      rows.className = 'group-rows';
+      g.docs.forEach(d => rows.appendChild(makeRow(d)));
+      group.appendChild(head);
+      group.appendChild(rows);
+      frag.appendChild(group);
+    });
+    el.innerHTML = '';
+    el.appendChild(frag);
+    viewList.forEach(requestDuration);
+    updateNavBtns();
+  }
+
+  function makeRow(d) {
+    const row = document.createElement('div');
+    row.className = 'row' + (d.id === activeDocId ? ' active' : '');
+    row.dataset.id = d.id;
+    const dur = durationOf(d);
+    row.innerHTML = `
+      <div class="thumb">${d.photo ? `<img src="${esc(d.photo)}" alt="" loading="lazy" />` : `<div class="thumb-ph">◎</div>`}</div>
+      <div class="info">
+        <div class="t-title">${esc(cleanTitle(d))}</div>
+        <div class="t-sub"><span class="t-artist">${esc(artistOf(d))}</span><span class="t-dur" data-dur="${d.id}">${dur ? fmt(dur) : '—:—'}</span></div>
+      </div>
+      <div class="t-genre">${esc(genresOf(d).join(', ') || '—')}</div>
+      <button class="more-btn" aria-label="더보기"><svg width="20" height="4"><use href="#i-more"/></svg></button>
+      <button class="dl-x" aria-label="음원·커버 다운로드" title="음원 + 커버 다운로드"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+      <button class="del-x" aria-label="삭제">×</button>`;
+    row.querySelector('.more-btn').addEventListener('click', (e) => { e.stopPropagation(); openMenu(e.currentTarget, d.id); });
+    row.querySelector('.del-x').addEventListener('click', (e) => requestDelete(e, d.id));
+    row.querySelector('.dl-x').addEventListener('click', (e) => { e.stopPropagation(); downloadTrack(d.id, e.currentTarget); });
+    row.addEventListener('click', () => selectTrack(d, true));
+    return row;
+  }
+
+  // ══════════ LYRICS & TIMING ══════════
+  // 표시용 가사 줄: [Verse] 같은 표식 제거, 빈 줄은 연 구분(gap)으로
+  function lyricLinesOf(d) {
+    const raw = (d.lyrics || '').replace(/\*\*/g, '').split('\n');
+    const out = [];
+    let gap = false;
+    raw.forEach(l => {
+      const t = l.replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)$/,'').trim();
+      if (!t) { if (out.length) gap = true; return; }
+      out.push({ text: l.replace(/\[[^\]]*\]/g, '').trim(), gap });
+      gap = false;
+    });
+    return out;
+  }
+  const normTxt = (s) => (s || '').normalize('NFC').toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/[\s\p{P}\p{S}]/gu, '');
+
+  // Suno 단어별 타임스탬프(lyricWords) → 가사 줄별 시작 시간
+  function computeLineTimes(lines, words) {
+    let stream = '';
+    const times = [];
+    words.forEach(w => {
+      const n = normTxt(w.w);
+      for (let i = 0; i < n.length; i++) times.push(w.s);
+      stream += n;
+    });
+    const res = [];
+    let cur = 0;
+    lines.forEach(({ text }) => {
+      const n = normTxt(text);
+      if (!n) { res.push(null); return; }
+      let idx = stream.indexOf(n, cur);
+      let len = n.length;
+      if (idx < 0 || idx - cur > 240) {
+        const probe = n.slice(0, Math.min(5, n.length));
+        const j = stream.indexOf(probe, cur);
+        if (j >= 0 && j - cur <= 240) { idx = j; len = Math.min(n.length, stream.length - j); }
+        else idx = -1;
+      }
+      if (idx >= 0) { res.push(times[idx]); cur = idx + len; }
+      else res.push(null);
+    });
+    return fillTimes(res);
+  }
+  function fillTimes(arr) {
+    const known = arr.map((t, i) => t == null ? -1 : i).filter(i => i >= 0);
+    if (!known.length) return null;
+    if (known.length < Math.max(2, Math.ceil(arr.length * 0.4))) return null; // 매칭이 너무 적으면 싱크 포기
+    const out = arr.slice();
+    for (let i = 0; i < out.length; i++) {
+      if (out[i] != null) continue;
+      const pi = known.filter(k => k < i).pop();
+      const ni = known.find(k => k > i);
+      if (pi != null && ni != null) out[i] = out[pi] + (out[ni] - out[pi]) * (i - pi) / (ni - pi);
+      else if (pi != null) out[i] = out[pi] + 3 * (i - pi);
+      else out[i] = Math.max(0, out[ni] - 3 * (ni - i));
+    }
+    for (let i = 1; i < out.length; i++) if (out[i] < out[i-1]) out[i] = out[i-1];
+    return out;
+  }
+
+  let curLines = [], curTimes = null, curLyricIdx = -2, userScrollUntil = 0;
+  window.__mnemoDebug = () => ({ lines: curLines.map(l => l.text), times: curTimes, idx: curLyricIdx });
+
+  function renderLyrics(d) {
+    curLines = lyricLinesOf(d);
+    curTimes = null;
+    if (Array.isArray(d.lyricTimes) && d.lyricTimes.length === curLines.length) curTimes = fillTimes(d.lyricTimes.map(Number));
+    else if (Array.isArray(d.lyricWords) && d.lyricWords.length) curTimes = computeLineTimes(curLines, d.lyricWords);
+    const box = $('plLyrics');
+    const inner = $('lyrInner');
+    box.classList.toggle('timed', !!curTimes);
+    box.classList.toggle('untimed', !curTimes);
+    if (!curLines.length) { inner.innerHTML = '<div class="ly-empty">가사가 없습니다</div>'; return; }
+    inner.innerHTML = curLines.map((l, i) => `<div class="ly${l.gap ? ' gap' : ''}" data-i="${i}">${esc(l.text)}</div>`).join('');
+    if (curTimes) {
+      inner.querySelectorAll('.ly').forEach(el => el.addEventListener('click', () => {
+        const t = curTimes[+el.dataset.i];
+        if (t == null) return;
+        audioEl.currentTime = Math.max(0, t - 0.05);
+        userScrollUntil = 0;
+        if (!isPlaying) playAudio();
+      }));
+    }
+    box.scrollTop = 0;
+    curLyricIdx = -2;
+    updateLyric(true);
+  }
+
+  function updateLyric(force) {
+    if (!curTimes) return;
+    const t = audioEl.currentTime + 0.15;
+    let idx = -1;
+    for (let i = 0; i < curTimes.length; i++) { if (curTimes[i] <= t) idx = i; else break; }
+    if (idx === curLyricIdx && !force) return;
+    curLyricIdx = idx;
+    const els = $('lyrInner').querySelectorAll('.ly');
+    els.forEach((el, i) => {
+      el.classList.toggle('on', i === idx);
+      const dist = i - Math.max(idx, 0);
+      const blur = dist >= 4 ? Math.min((dist - 3) * 1.6, 6) : (dist <= -3 ? Math.min((-dist - 2) * 1.2, 4) : 0);
+      el.style.filter = blur ? `blur(${blur}px)` : '';
+    });
+    if (Date.now() < userScrollUntil) return;
+    const box = $('plLyrics');
+    const target = els[Math.max(idx, 0)];
+    if (!target) return;
+    const anchor = window.innerWidth <= 768 ? 0.35 : 0.22;
+    const top = target.offsetTop - box.clientHeight * anchor;
+    if (window.innerWidth <= 768) {
+      if (idx < 0 || force) return;
+      const pl = document.querySelector('.player');
+      const r = target.getBoundingClientRect();
+      pl.scrollBy({ top: r.top - window.innerHeight * anchor, behavior: 'smooth' });
+    } else {
+      box.scrollTo({ top: Math.max(0, top), behavior: force ? 'auto' : 'smooth' });
+    }
+  }
+  ['wheel', 'touchmove'].forEach(ev => $('plLyrics').addEventListener(ev, () => { userScrollUntil = Date.now() + 3500; }, { passive: true }));
+
+  // ══════════ SELECT / PLAYER ══════════
+  function setCover(d) {
+    const img = $('plCoverImg');
+    const src = d.coverUrl || d.photo;
+    if (src) { img.src = src; img.style.display = 'block'; $('plCoverPh').style.display = 'none'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; $('plCoverPh').style.display = 'flex'; }
+  }
+
+  function selectTrack(d, autoplay) {
+    const same = d.id === activeDocId;
+    activeDocId = d.id; window.activeDocId = d.id;
+    document.querySelectorAll('.row').forEach(el => el.classList.toggle('active', el.dataset.id === d.id));
+    appEl.classList.add('player-open');
+    updateLayout();
+    $('rightPanel').setAttribute('aria-hidden', 'false');
+
+    $('plTitle').textContent = cleanTitle(d);
+    $('plArtist').textContent = artistOf(d);
+    $('plGenre').textContent = genresOf(d).join(', ') || '—';
+    setCover(d);
+    refreshActiveMeta();
+    updateNavBtns();
+
+    if (same && audioEl.src) { if (autoplay && !isPlaying) playAudio(); return; }
+    renderLyrics(d);
+    audioEl.pause();
+    audioEl.src = d.audioUrl || '';
+    isPlaying = false;
+    updatePlayIcon();
+    $('pfill').style.width = '0%';
+    $('tNow').textContent = '0:00';
+    const dur = durationOf(d);
+    $('tTotal').textContent = dur ? fmt(dur) : '0:00';
+    if (autoplay && d.audioUrl) playAudio();
+
+    const url = new URL(location.href);
+    url.searchParams.set('id', d.id);
+    history.replaceState(null, '', url);
+  }
+
+  function refreshActiveMeta() {
+    if (!activeDocId) return;
+    const d = allDocs.find(x => x.id === activeDocId);
+    if (!d) return;
+    const liked = isLiked(d.id);
+    $('plLike').classList.toggle('liked', liked);
+    $('plLikeCount').textContent = Math.max(0, d.likes || 0);
+    $('plTitle').textContent = cleanTitle(d);
+    $('plArtist').textContent = artistOf(d);
+  }
+
+  window.closePlayer = () => {
+    appEl.classList.remove('player-open');
+    updateLayout();
+    $('rightPanel').setAttribute('aria-hidden', 'true');
+    activeDocId = null; window.activeDocId = null;
+    audioEl.pause();
+    isPlaying = false;
+    updatePlayIcon();
+    document.querySelectorAll('.row').forEach(el => el.classList.remove('active'));
+    const url = new URL(location.href);
+    url.searchParams.delete('id');
+    history.replaceState(null, '', url);
+  };
+
+  // ══════════ AUDIO ══════════
+  function playAudio() {
+    if (!audioEl.src) return;
+    const p = audioEl.play();
+    isPlaying = true; updatePlayIcon();
+    if (p && p.catch) p.catch(() => { isPlaying = false; updatePlayIcon(); });
+  }
+  window.togglePlay = () => {
+    if (!audioEl.src) return;
+    if (isPlaying) { audioEl.pause(); isPlaying = false; updatePlayIcon(); }
+    else playAudio();
+  };
+  function updatePlayIcon() {
+    $('playSvg').innerHTML = `<use href="#${isPlaying ? 'i-pause' : 'i-play'}"/>`;
+    $('btnPlay').setAttribute('aria-label', isPlaying ? '일시정지' : '재생');
+  }
+  function navIndex() { return viewList.findIndex(d => d.id === activeDocId); }
+  function updateNavBtns() {
+    const i = navIndex();
+    $('btnPrev').disabled = i < 0;
+    $('btnNext').disabled = !(i >= 0 && i < viewList.length - 1);
+  }
+  window.prevTrack = () => {
+    if (audioEl.currentTime > 3) { audioEl.currentTime = 0; return; }
+    const i = navIndex();
+    if (i > 0) { selectTrack(viewList[i - 1], true); scrollRowIntoView(); }
+    else audioEl.currentTime = 0;
+  };
+  window.nextTrack = () => {
+    const i = navIndex();
+    if (i >= 0 && i < viewList.length - 1) { selectTrack(viewList[i + 1], true); scrollRowIntoView(); }
+  };
+  function scrollRowIntoView() {
+    const el = document.querySelector(`.row[data-id="${activeDocId}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  audioEl.ontimeupdate = () => {
+    const pct = audioEl.duration ? (audioEl.currentTime / audioEl.duration) * 100 : 0;
+    if (!seeking) $('pfill').style.width = pct + '%';
+    $('tNow').textContent = fmt(audioEl.currentTime);
+    if (audioEl.duration) $('tTotal').textContent = fmt(audioEl.duration);
+    updateLyric();
+  };
+  audioEl.onloadedmetadata = () => {
+    if (activeDocId && isFinite(audioEl.duration)) {
+      $('tTotal').textContent = fmt(audioEl.duration);
+      if (!durCache[activeDocId]) {
+        durCache[activeDocId] = audioEl.duration;
+        document.querySelectorAll(`[data-dur="${activeDocId}"]`).forEach(el => el.textContent = fmt(audioEl.duration));
+      }
+    }
+  };
+  audioEl.onseeked = () => updateLyric(true);
+  audioEl.onended = () => { isPlaying = false; updatePlayIcon(); };
+
+  // 진행바: 클릭 + 드래그
+  let seeking = false;
+  const pbar = $('pbar');
+  function seekTo(clientX) {
+    const r = pbar.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    $('pfill').style.width = (pct * 100) + '%';
+    if (audioEl.duration) audioEl.currentTime = pct * audioEl.duration;
+  }
+  pbar.addEventListener('pointerdown', (e) => { if (!audioEl.duration) return; seeking = true; pbar.setPointerCapture(e.pointerId); seekTo(e.clientX); });
+  pbar.addEventListener('pointermove', (e) => { if (seeking) seekTo(e.clientX); });
+  pbar.addEventListener('pointerup', () => { seeking = false; userScrollUntil = 0; });
+  pbar.addEventListener('pointercancel', () => { seeking = false; });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space' && activeDocId) { e.preventDefault(); togglePlay(); }
+    if (e.key === 'Escape') { closeMenu(); closeQr(); toggleLeft(false); }
+  });
+
+  // ══════════ LIKES (브라우저 기억 + Firestore increment) ══════════
+  let likedSet = new Set();
+  try { likedSet = new Set(JSON.parse(localStorage.getItem('mnemo_likes') || '[]')); } catch (e) {}
+  const isLiked = (id) => likedSet.has(id);
+  const likeBusy = new Set();
+
+  window.toggleLike = async (id) => {
+    if (!id || likeBusy.has(id)) return;
+    const d = allDocs.find(x => x.id === id);
+    if (!d) return;
+    const willLike = !isLiked(id);
+    if (!willLike && (d.likes || 0) <= 0) { likedSet.delete(id); saveLikes(); refreshActiveMeta(); return; }
+    likeBusy.add(id);
+    // 낙관적 반영
+    willLike ? likedSet.add(id) : likedSet.delete(id);
+    d.likes = Math.max(0, (d.likes || 0) + (willLike ? 1 : -1));
+    saveLikes(); refreshActiveMeta(); syncMenu();
+    if (willLike && id === activeDocId) { const b = $('plLike'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    try {
+      await updateDoc(doc(db, 'archive', id), { likes: increment(willLike ? 1 : -1) });
+    } catch (err) {
+      console.error('like failed', err);
+      willLike ? likedSet.delete(id) : likedSet.add(id);
+      d.likes = Math.max(0, (d.likes || 0) + (willLike ? -1 : 1));
+      saveLikes(); refreshActiveMeta(); syncMenu();
+      toast('좋아요를 저장하지 못했어요');
+    } finally { likeBusy.delete(id); }
+  };
+  function saveLikes() { try { localStorage.setItem('mnemo_likes', JSON.stringify([...likedSet])); } catch (e) {} }
+
+  // ══════════ SHARE ══════════
+  /* 파일·localhost로 열었을 때 공유/QR에 넣을 공개 주소 (지금은 ngrok, 호스팅하면 그 주소로 교체) */
+  const PUBLIC_ARCHIVE_URL = "https://smsshb.github.io/mnemo-archive/archive.html";
+  function shareUrlFor(id) {
+    const isLocal = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    const u = new URL(isLocal ? PUBLIC_ARCHIVE_URL : location.href);
+    u.search = ''; u.hash = '';
+    u.searchParams.set('id', id);
+    return u.toString();
+  }
+  function isMobileDevice() {
+    const ua = navigator.userAgent || '';
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') return navigator.userAgentData.mobile;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  }
+  let shareCurUrl = '';
+  window.shareTrack = async (id) => {
+    if (!id) return;
+    const d = allDocs.find(x => x.id === id);
+    if (!d) return;
+    const url = shareUrlFor(id);
+    const title = `${cleanTitle(d)} — ${artistOf(d)}`;
+    if (isMobileDevice() && navigator.share) {
+      try { await navigator.share({ title, text: `${title} · MNEMO Records`, url }); }
+      catch (e) { if (e && e.name !== 'AbortError') copyText(url); }
+      return;
+    }
+    // PC: 휴대폰으로 스캔할 QR
+    shareCurUrl = url;
+    $('qrSong').textContent = title;
+    $('qrUrl').textContent = url;
+    const box = $('qrBox');
+    box.innerHTML = '';
+    if (window.QRCode) {
+      new QRCode(box, { text: url, width: 392, height: 392, colorDark: '#1C1714', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.M });
+    } else {
+      box.innerHTML = '<div class="modal-sub" style="padding-top:80px">QR을 불러오지 못했어요.<br>링크 복사를 이용해 주세요.</div>';
+    }
+    $('qrModal').classList.add('show');
+  };
+  window.closeQr = () => $('qrModal').classList.remove('show');
+  window.copyShareUrl = () => copyText(shareCurUrl);
+  $('qrModal').addEventListener('click', e => { if (e.target === $('qrModal')) closeQr(); });
+
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast('링크를 복사했어요'); return; } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('링크를 복사했어요'); } catch (e) { toast('복사하지 못했어요'); }
+    ta.remove();
+  }
+
+  // ══════════ ⋯ MENU ══════════
+  let menuId = null;
+  const menu = $('moreMenu');
+  function openMenu(btn, id) {
+    if (menuId === id && menu.classList.contains('show')) { closeMenu(); return; }
+    menuId = id;
+    syncMenu();
+    menu.classList.add('show');
+    const r = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = r.right - mw + 6, top = r.bottom + 10;
+    if (top + mh > window.innerHeight - 8) top = r.top - mh - 10;
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    menu.style.left = left + 'px'; menu.style.top = top + 'px';
+  }
+  function closeMenu() { menu.classList.remove('show'); menuId = null; }
+  function syncMenu() {
+    if (!menuId) return;
+    const d = allDocs.find(x => x.id === menuId);
+    const liked = isLiked(menuId);
+    $('menuLikeTxt').textContent = liked ? '좋아요 취소' : '좋아요';
+    $('menuLikeCount').textContent = Math.max(0, d?.likes || 0);
+    $('menuLike').classList.toggle('liked', liked);
+  }
+  $('menuShare').onclick = () => { const id = menuId; closeMenu(); shareTrack(id); };
+  $('menuLike').onclick = () => toggleLike(menuId);
+  document.addEventListener('click', (e) => { if (!menu.contains(e.target) && !e.target.closest('.more-btn')) closeMenu(); });
+  $('centerEl').addEventListener('scroll', closeMenu, { passive: true });
+  window.addEventListener('resize', closeMenu);
+
+  // ══════════ 관리자 다운로드 : 제목_아티스트.mp3 + 제목_아티스트.png ══════════
+  // 1) 직접 받기(교차 출처 허용 시) → 2) 안 되면 server.js 의 /api/dl 프록시로 받기
+  const DL_PROXY = /^https?:$/.test(location.protocol) ? location.origin : 'http://localhost:3003';
+  const safeName = (s) => String(s || '').replace(/[\\/:*?"<>|\r\n\t]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'untitled';
+  function saveBlob(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+  }
+  async function toPng(blob) {
+    if (blob.type === 'image/png') return blob;
+    const bm = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
+    c.getContext('2d').drawImage(bm, 0, 0);
+    return await new Promise((r) => c.toBlob(r, 'image/png'));
+  }
+  async function dlOne(url, name, png) {
+    try {
+      const r = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!r.ok) throw new Error('status ' + r.status);
+      let b = await r.blob();
+      if (png) b = await toPng(b);
+      saveBlob(b, name);
+    } catch (e) {
+      if (url.startsWith('data:')) throw e;
+      const a = document.createElement('a');
+      a.href = `${DL_PROXY}/api/dl?u=${encodeURIComponent(url)}&n=${encodeURIComponent(name)}`;
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    }
+  }
+  window.downloadTrack = async (id, btn) => {
+    const d = allDocs.find(x => x.id === id);
+    if (!d) return;
+    const base = safeName(cleanTitle(d)) + '_' + safeName(artistOf(d));
+    if (btn) btn.classList.add('busy');
+    try {
+      if (d.audioUrl) await dlOne(d.audioUrl, base + '.mp3', false);
+      else toast('음원 링크가 없어요');
+      await new Promise((r) => setTimeout(r, 700));
+      const img = d.coverUrl || d.photo;
+      if (img) await dlOne(img, base + '.png', true);
+      toast(d.coverUrl ? '음원과 커버를 받는 중이에요' : '커버가 없어 원본 사진을 받았어요');
+    } catch (e) {
+      console.error(e); toast('다운로드하지 못했어요');
+    } finally { if (btn) setTimeout(() => btn.classList.remove('busy'), 1200); }
+  };
+
+  // ══════════ 관리자 기능은 이 컴퓨터(파일 / localhost)에서 열었을 때만 ══════════
+  const IS_ADMIN_HOST = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (!IS_ADMIN_HOST) $('delModeBtn').style.display = 'none';
+
+  // ══════════ DELETE ══════════
+  window.toggleDelMode = () => {
+    if (!IS_ADMIN_HOST) return;
+    delMode = !delMode;
+    document.body.classList.toggle('del-mode', delMode);
+    const btn = $('delModeBtn');
+    btn.classList.toggle('active', delMode);
+    btn.textContent = delMode ? '삭제 모드 해제' : '삭제 모드';
+  };
+  function requestDelete(e, id) {
+    e.stopPropagation();
+    pendingDeleteId = id;
+    const input = $('pwInput');
+    input.value = ''; input.classList.remove('error');
+    $('pwErr').classList.remove('show');
+    $('pwModal').classList.add('show');
+    setTimeout(() => input.focus(), 50);
+  }
+  window.cancelDelete = () => { pendingDeleteId = null; $('pwModal').classList.remove('show'); };
+  window.confirmDelete = async () => {
+    const input = $('pwInput');
+    if (input.value !== ADMIN_PW) {
+      input.classList.add('error'); $('pwErr').classList.add('show'); input.value = ''; input.focus();
+      return;
+    }
+    if (!pendingDeleteId) return;
+    if (activeDocId === pendingDeleteId) closePlayer();
+    await deleteDoc(doc(db, 'archive', pendingDeleteId));
+    $('pwModal').classList.remove('show');
+    pendingDeleteId = null;
+  };
+  $('pwModal').addEventListener('click', e => { if (e.target === $('pwModal')) cancelDelete(); });
+</script>
+</body>
+</html>
